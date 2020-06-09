@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+require "sleeproom/cli"
+
+cli = SleepRoom::CLI.new(ARGV)
+cli.run
