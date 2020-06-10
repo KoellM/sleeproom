@@ -55,9 +55,14 @@ module SleepRoom
                 if @running == false && @reconnection == false
                   start_websocket
                 elsif @reconnection == true
-                  record
+                  api = API::RoomAPI.new(room)
+                  @room_id = api.room_id
+                  @room_name = api.room_name
+                  @is_live = api.live?
+                  @broadcast_host = api.broadcast_host
+                  @broadcast_key = api.broadcast_key
+                  start_websocket
                   @reconnection = false
-                  task.stop
                 end
                 task.sleep 10
               end
