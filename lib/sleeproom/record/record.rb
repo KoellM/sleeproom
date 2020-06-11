@@ -19,12 +19,12 @@ module SleepRoom
       def record(reconnection: false)
         room = @room
         Async do |task|
-          api = API::RoomAPI.new(room)
+          set_room_info
           task.async do |t|
-            while api.live?
+            while @is_live
               if status = SleepRoom.load_config(:status).find{|hash| hash[:room] == room}
                 if !status[:pid].nil?
-                  break if SleepRoom.running?(pid) == false
+                  break if SleepRoom.running?(status[:pid]) == false
                 else
                   break
                 end
@@ -34,11 +34,6 @@ module SleepRoom
               t.sleep 60
             end
           end.wait
-          @room_id = api.room_id
-          @room_name = api.room_name
-          @is_live = api.live?
-          @broadcast_host = api.broadcast_host
-          @broadcast_key = api.broadcast_key
           if @is_live
             start_time = Time.now
             log("Live broadcast.")
@@ -55,12 +50,7 @@ module SleepRoom
                 if @running == false && @reconnection == false
                   start_websocket
                 elsif @reconnection == true
-                  api = API::RoomAPI.new(room)
-                  @room_id = api.room_id
-                  @room_name = api.room_name
-                  @is_live = api.live?
-                  @broadcast_host = api.broadcast_host
-                  @broadcast_key = api.broadcast_key
+                  set_room_info
                   start_websocket
                   @reconnection = false
                 end
@@ -138,6 +128,15 @@ module SleepRoom
           ws.running = false
           @running = false
         end
+      end
+      
+      def set_room_info
+        api = API::RoomAPI.new(room)
+        @room_id = api.room_id
+        @room_name = api.room_name
+        @is_live = api.live?
+        @broadcast_host = api.broadcast_host
+        @broadcast_key = api.broadcast_key
       end
 
       def parse_streaming_url(task: Async::Task.current)
