@@ -6,12 +6,13 @@ require "json"
 module SleepRoom
     module Record
         class WebSocket
+          attr_accessor :queue
           def initialize(room:, broadcast_key:, url:)
             @room = room
             @url = "wss://" + url
             @broadcast_key = broadcast_key
             @running = false
-            @status = {}
+            @queue = Async::Queue.new
           end
 
           def connect(task: Async::Task.current)
@@ -23,12 +24,12 @@ module SleepRoom
                 connection.write("SUB\t#{@broadcast_key}")
                 connection.flush
                 log("Connect to websocket server.")
-                @status[:last_update] = Time.now
+                @queue.enqueue({event: :connect, time: Time.now})
                 
                 ping_task = task.async do |sub|
                   while @running
                     sub.sleep 60
-                    @status[:last_ping] = Time.now
+                    @queue.enqueue({event: :ping, time: Time.now})
                     connection.write("PING\tshowroom")
                     connection.flush
                   end
@@ -44,12 +45,10 @@ module SleepRoom
                 end
 
                 while message = connection.read
-                  @status[:last_update]
                   if message == "ACK\tshowroom"
-                    @status[:last_ack] = Time.now if message == "ACK\tshowroom"
+                    @queue.enqueue({event: :ack, time: Time.now}) if message == "ACK\tshowroom"
                   end
                   if message.start_with?("MSG")
-                    @status[:last_msg] = Time.now
                     begin
                       yield JSON.parse(message.split("\t")[2])
                     rescue => e
@@ -77,10 +76,6 @@ module SleepRoom
           def stop
             @running = false
             @connection.close
-          end
-
-          def status
-            @status
           end
 
           def log(str)

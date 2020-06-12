@@ -112,15 +112,27 @@ module SleepRoom
           end
 
           Async do |task|
+            last_ack = nil
+            last_ping = nil
             while @running && @downlaoding == false
-              status = ws.status
-              if !status[:last_ack].nil? && Time.now.to_i - status[:last_ack].to_i > 65
+              queue = ws.queue.items
+              if !queue.empty?
+                queue.each do |event|
+                  case event[:event]
+                  when :ack
+                    last_ack = event[:time]
+                  when :ping
+                    last_ping = event[:ping]
+                  end
+                end
+              end
+              if !last_ack.nil? && Time.now.to_i - last_ack.to_i > 65
                 ws.running = false
                 @running = false
                 task.stop
               end
-              waiting_live(status)
-              task.sleep 30
+              waiting_live({last_ack: last_ack})
+              task.sleep 1
             end
           end
           task.children.each(&:wait)
@@ -131,17 +143,25 @@ module SleepRoom
       end
       
       def set_room_info
-        api = API::RoomAPI.new(room)
+        api = API::RoomAPI.new(@room)
         @room_id = api.room_id
         @room_name = api.room_name
         @is_live = api.live?
         @broadcast_host = api.broadcast_host
         @broadcast_key = api.broadcast_key
+      rescue => e
+        SleepRoom.error(e.message)
+        log("[setRoomInfo] Retry...")
+        retry
       end
 
       def parse_streaming_url(task: Async::Task.current)
         api = API::StreamingAPI.new(@room_id)
         streaming_url_list = api.streaming_url
+      rescue => e
+        SleepRoom.error(e.message)
+        log("[parseStreamingUrl] Retry...")
+        retry
       end
 
       def build_output(task: Async::Task.current)
