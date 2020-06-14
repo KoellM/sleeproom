@@ -4,6 +4,7 @@ require "configatron"
 require "colorize"
 require "fileutils"
 require "yaml"
+require "logger"
 
 module SleepRoom
   class Error < StandardError; end
@@ -111,10 +112,6 @@ module SleepRoom
         file: {
           use: true,
           path: "#{sleeproom_dir}/log"
-        },
-        websocket: {
-          log: true,
-          ping_log: false
         }
       }
     }
@@ -197,18 +194,43 @@ module SleepRoom
   # @param string [String]
   # @return [nil]
   def self.info(string)
-    STDOUT.puts("[INFO] #{string}".colorize(:white))
+    log(:info, "[INFO] #{string}".colorize(:white))
   end
 
   # @param string [String]
   # @return [nil]
   def self.warning(string)
-    warn("[WARN] #{string}".colorize(:yellow))
+    log(:warning, "[WARN] #{string}".colorize(:yellow))
   end
 
   # @param string [String]
   # @return [nil]
   def self.error(string)
-    STDOUT.puts("[ERROR] #{string}".colorize(:red))
+    log(:error, "[ERROR] #{string}".colorize(:red))
+  end
+
+  def self.log(type, log)
+    case type
+    when :info
+      puts(log)
+    when :warning
+      warn(log)
+    when :error
+      puts(log)
+    end
+    file_logger(type, log) if configatron.logger.file.use == true
+  end
+
+  def self.file_logger(type, log)
+    path = configatron.logger.file.path
+    logger = Logger.new(path)
+    case type
+    when :info
+      logger.info(log)
+    when :warning
+      logger.warning(log)
+    when :error
+      logger.error(log)
+    end
   end
 end

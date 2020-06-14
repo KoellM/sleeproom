@@ -159,7 +159,7 @@ module SleepRoom
         api = API::StreamingAPI.new(@room_id)
         streaming_url_list = api.streaming_url
       rescue => e
-        SleepRoom.error(e.message)
+        SleepRoom.error(e.full_message)
         log("[parseStreamingUrl] Retry...")
         retry
       end
@@ -187,7 +187,8 @@ module SleepRoom
         })
         task.async do |t|
           while true
-            if !SleepRoom.running?(pid) && !API::RoomAPI.new(@room).live?
+            live = API::RoomAPI.new(@room).live?
+            if !SleepRoom.running?(pid) && !live
               log("Download complete.")
               @downlaoding = false
               @queue.add({
@@ -198,9 +199,19 @@ module SleepRoom
                 status: :complete,
               })
               break
+            elsif live && !SleepRoom.running?(pid)
+              log("Minyami crash.")
+              streaming_url = parse_streaming_url
+              output = build_output
+              pid = SleepRoom::Record.call_minyami(url: streaming_url, output: output)
+            elsif !live && SleepRoom.running?(pid)
+              log("Live stop.")
             end
-            t.sleep 60
+            t.sleep 120
           end
+        rescue Faraday::ConnectionFailed
+          log("Network error.")
+          retry
         end.wait
       end
 

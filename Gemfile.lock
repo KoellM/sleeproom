@@ -1,13 +1,13 @@
 PATH
   remote: .
   specs:
-    sleeproom (0.2.0)
-      async
-      async-http-faraday
-      async-websocket
-      colorize
-      configatron
-      terminal-table
+    sleeproom (0.3.0)
+      async (~> 1.26.0)
+      async-http-faraday (~> 0.9.0)
+      async-websocket (~> 0.15.0)
+      colorize (~> 0.8.0)
+      configatron (~> 4.5.0)
+      terminal-table (~> 1.8.0)
 
 GEM
   remote: https://rubygems.org/

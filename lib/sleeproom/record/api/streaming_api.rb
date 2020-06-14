@@ -15,7 +15,11 @@ module SleepRoom
         end
 
         def streaming_url
-          @json["streaming_url_list"].sort_by{|hash| -hash["quality"]}.first["url"]
+          if @json["streaming_url_list"].nil?
+            raise Error.new("streaming url is null.")
+          else
+            @json["streaming_url_list"].sort_by{|hash| -hash["quality"]}.first["url"]
+          end
         end
       end
     end
