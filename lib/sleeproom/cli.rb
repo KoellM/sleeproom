@@ -8,6 +8,7 @@ module SleepRoom
   class CLI
     # @param argv [Array]
     def initialize(argv)
+      SleepRoom.reload_config
       @options = {}
       build
       unless argv.empty?
@@ -57,6 +58,9 @@ module SleepRoom
 
         opt.on("-d", "--download [ROOM]", "录制指定房间") do |room|
           raise Error.new("房间名不能为空") if room.nil?
+          if room.match?("https://www.showroom-live.com/")
+            room = room.match(/https:\/\/www.showroom-live.com\/(.*)/)[1]
+          end
           write_status = SleepRoom::Record::WriteStatus.new
           record = SleepRoom::Record::Showroom.new(room: room, group: "download", queue: write_status)
           record.record
