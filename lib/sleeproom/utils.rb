@@ -110,7 +110,7 @@ module SleepRoom
       logger: {
         console: true,
         file: {
-          use: true,
+          use: false,
           path: "#{sleeproom_dir}/log"
         }
       }
@@ -142,7 +142,8 @@ module SleepRoom
     end
     true
   rescue Errno::ENOENT => e
-    error("Could not load file. \n#{e.message}")
+    info("Creating configuration...")
+    init_base
     false
   end
 
@@ -165,7 +166,7 @@ module SleepRoom
 
   def self.running?(pid=nil)
     pid = SleepRoom.load_config(:pid) if pid.nil?
-    Process.getpgid(pid)
+    Process.kill(0, pid)
     true
   rescue
     false
@@ -223,6 +224,7 @@ module SleepRoom
 
   def self.file_logger(type, log)
     path = configatron.logger.file.path
+    mkdir(File.dirname(path)) unless Dir.exist?(File.dirname(path))
     logger = Logger.new(path)
     case type
     when :info
