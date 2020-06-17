@@ -149,6 +149,10 @@ module SleepRoom
         @is_live = api.live?
         @broadcast_host = api.broadcast_host
         @broadcast_key = api.broadcast_key
+      rescue API::NotFoundError
+        SleepRoom.error("[#{@room}] The room does not exist.")
+        log("Task stopped.")
+        Async::Task.current.stop
       rescue => e
         SleepRoom.error(e.message)
         log("[setRoomInfo] Retry...")
@@ -186,7 +190,7 @@ module SleepRoom
           download_pid: pid
         })
         task.async do |t|
-          while true
+          loop do
             live = API::RoomAPI.new(@room).live?
             if !SleepRoom.running?(pid) && !live
               log("Download complete.")
@@ -208,10 +212,10 @@ module SleepRoom
               log("Live stop.")
             end
             t.sleep 120
+          rescue Faraday::ConnectionFailed
+            log("Network error.")
+            retry
           end
-        rescue Faraday::ConnectionFailed
-          log("Network error.")
-          retry
         end.wait
       end
 

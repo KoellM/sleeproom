@@ -10,6 +10,7 @@ module SleepRoom
   module Record
     module API
       class Error < StandardError; end
+      class NotFoundError < Error; end
       ROOM_URL = "https://www.showroom-live.com"
       ROOM_API = "https://www.showroom-live.com/api/room/status"
       STREAMING_API = "https://www.showroom-live.com/api/live/streaming_url"
@@ -21,6 +22,8 @@ module SleepRoom
           http = Faraday.get(url, nil, {"User-Agent": USER_AGENT})
           if http.status == 200
             @json = JSON.parse(http.body)
+          elsif http.status == 404
+            raise NotFoundError
           else
             raise Error, "HTTP Error: #{http.status}"
           end

@@ -17,8 +17,6 @@ module SleepRoom
           SleepRoom::Record::Tasks.status
         elsif action == "start"
           SleepRoom::Record::Tasks.start
-        elsif action == "download"
-          raise "未实现"
         elsif action == "exit"
           SleepRoom::Record::Tasks.stop
         end
@@ -53,18 +51,21 @@ module SleepRoom
           SleepRoom::Record::Tasks.add(room[0].to_s, room[1].to_s)
         end
 
-        opt.on("-r", "--remove [URL]", "从监视列表移除") do |room|
+        opt.on("-r", "--remove [ROOM]", "从监视列表移除") do |room|
           SleepRoom::Record::Tasks.remove(room)
+        end
+
+        opt.on("-d", "--download [ROOM]", "录制指定房间") do |room|
+          raise Error.new("房间名不能为空") if room.nil?
+          write_status = SleepRoom::Record::WriteStatus.new
+          record = SleepRoom::Record::Showroom.new(room: room, group: "download", queue: write_status)
+          record.record
         end
 
         opt.on("-v", "--verbose", "Print log") do
           @options[:verbose] = true
         end
-
-        opt.on("-d", "daemon", "Daemonize the script into the background") do
-          @options[:daemon] = true
-        end
-
+        
         opt.on_tail("--version", "Print version") do
           STDOUT.puts(opt.version)
         end
