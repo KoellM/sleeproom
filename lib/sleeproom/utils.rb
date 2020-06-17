@@ -195,29 +195,31 @@ module SleepRoom
   # @param string [String]
   # @return [nil]
   def self.info(string)
-    log(:info, "[INFO] #{string}".colorize(:white))
+    log(:info, string)
   end
 
   # @param string [String]
   # @return [nil]
   def self.warning(string)
-    log(:warning, "[WARN] #{string}".colorize(:yellow))
+    log(:warning, string)
   end
 
   # @param string [String]
   # @return [nil]
   def self.error(string)
-    log(:error, "[ERROR] #{string}".colorize(:red))
+    log(:error, string)
   end
 
   def self.log(type, log)
-    case type
-    when :info
-      puts(log)
-    when :warning
-      warn(log)
-    when :error
-      puts(log)
+    if configatron.logger.console == true
+      case type
+      when :info
+        puts("[INFO] #{log}".colorize(:white))
+      when :warning
+        warn("[WARN] #{log}".colorize(:yellow))
+      when :error
+        puts("[ERROR] #{log}".colorize(:red))
+      end
     end
     file_logger(type, log) if configatron.logger.file.use == true
   end
