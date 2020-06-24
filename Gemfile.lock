@@ -67,7 +67,7 @@ GEM
     protocol-websocket (0.7.4)
       protocol-http (~> 0.2)
       protocol-http1 (~> 0.2)
-    rack (2.2.2)
+    rack (2.2.3)
     rainbow (3.0.0)
     rake (12.3.3)
     rspec (3.9.0)
