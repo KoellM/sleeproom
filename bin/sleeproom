@@ -3,5 +3,4 @@
 
 require "sleeproom/cli"
 
-cli = SleepRoom::CLI.new(ARGV)
-cli.run
+SleepRoom::CLI.new(ARGV)

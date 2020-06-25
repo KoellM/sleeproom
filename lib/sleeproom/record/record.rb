@@ -4,58 +4,52 @@ require "sleeproom/record/write_status"
 module SleepRoom
   module Record
     class Showroom
-      SITE = "showroom"
       def initialize(room:, group: "default", queue:)
         @room = room
         @group = group
         @queue = queue
         @running = false
-        @downlaoding = false
+        @downloading = false
         @reconnection = false
+        @pid = nil
       end
 
       # @param user [String]
       # @return [Boolean]
-      def record(reconnection: false)
+      def record(reconnection: false, main_task: Async::Task.current)
         room = @room
-        Async do |task|
+        main_task.async do |task|
           set_room_info
-          task.async do |t|
-            while @is_live
-              if status = SleepRoom.load_config(:status).find{|hash| hash[:room] == room}
-                if !status[:pid].nil?
-                  break if SleepRoom.running?(status[:pid]) == false
-                else
-                  break
-                end
-              else
-                break
-              end
-              t.sleep 60
+          while @is_live
+            if @pid
+              next if SleepRoom.running?(@pid)
             end
-          end.wait
+            break
+          task.sleep 1
+          end
           if @is_live
             start_time = Time.now
             log("Live broadcast.")
             streaming_url = parse_streaming_url
             output = build_output
+            call_time = Time.now
             pid = SleepRoom::Record.call_minyami(url: streaming_url, output: output)
             downloading(streaming_url, pid, start_time)
+            path = SleepRoom.find_tmp_directory(output, call_time)
+            SleepRoom.move_ts_to_archive(path)
             record
           else
             log("Status: Stop.")
             waiting_live(ws: :init)
-            Async do |task|
-              while true
-                if @running == false && @reconnection == false
-                  start_websocket
-                elsif @reconnection == true
-                  set_room_info
-                  start_websocket
-                  @reconnection = false
-                end
-                task.sleep 10
+            while true
+              if @running == false && @reconnection == false
+                start_websocket
+              elsif @reconnection
+                set_room_info
+                start_websocket
+                @reconnection = false
               end
+              task.sleep 1
             end
           end
         rescue => e
@@ -72,14 +66,12 @@ module SleepRoom
       end
       
       private
-      def start_websocket()
-        Async do |task|
+      def start_websocket(main_task: Async::Task.current)
+        main_task.async do |task|
           @running = true
           log("Broadcast Key: #{@broadcast_key}")
           waiting_live(ws: :init)
           ws = WebSocket.new(room: @room, broadcast_key: @broadcast_key, url: @broadcast_host)
-          @ws = ws
-          # ws status
           ws_task = task.async do |sub|
             ws.running = true
             ws.connect(task: sub) do |message|
@@ -94,8 +86,10 @@ module SleepRoom
                 start_time = Time.now
                 streaming_url = parse_streaming_url
                 output = build_output
+                call_time = Time.now
                 pid = SleepRoom::Record.call_minyami(url: streaming_url, output: output)
-                downloading(streaming_url, pid, start_time)
+                path = SleepRoom.find_tmp_directory(output, call_time)
+                SleepRoom.move_ts_to_archive(path)
                 ws.running = false
                 @running = false
                 @reconnection = true
@@ -111,10 +105,10 @@ module SleepRoom
             add_error(e)
           end
 
-          Async do |task|
+          main_task.async do |task|
             last_ack = nil
             last_ping = nil
-            while @running && @downlaoding == false
+            while @running && @downloading == false
               queue = ws.queue.items
               if !queue.empty?
                 queue.each do |event|
@@ -142,7 +136,7 @@ module SleepRoom
         end
       end
       
-      def set_room_info
+      def set_room_info(task: Async::Task.current)
         api = API::RoomAPI.new(@room)
         @room_id = api.room_id
         @room_name = api.room_name
@@ -156,6 +150,7 @@ module SleepRoom
       rescue => e
         SleepRoom.error(e.message)
         log("[setRoomInfo] Retry...")
+        task.sleep 5
         retry
       end
 
@@ -174,11 +169,12 @@ module SleepRoom
         tmp_str = configatron.default_save_name
         tmp_str = tmp_str.sub("\%TIME\%", Time.now.strftime("%Y-%m-%d-%H-%M-%S")) if tmp_str.include?("\%TIME\%")
         tmp_str = tmp_str.sub("\%ROOMNAME\%", room) if tmp_str.include?("\%ROOMNAME\%")
-        File.join(group, room, "showroom", tmp_str)
+        File.join(group, room, tmp_str)
       end
 
       def downloading(streaming_url, pid, start_time, task: Async::Task.current)
-      @downlaoding = true
+        @downloading = true
+        @pid = pid
         @queue.add({
           room: @room,
           start_time: start_time,
@@ -189,34 +185,35 @@ module SleepRoom
           streaming_url: streaming_url,
           download_pid: pid
         })
-        task.async do |t|
-          loop do
-            live = API::RoomAPI.new(@room).live?
-            if !SleepRoom.running?(pid) && !live
-              log("Download complete.")
-              @downlaoding = false
-              @queue.add({
-                room: @room,
-                name: @room_name,
-                group: @group,
-                live: API::RoomAPI.new(@room).live?,
-                status: :complete,
-              })
-              break
-            elsif live && !SleepRoom.running?(pid)
-              log("Minyami crash.")
-              streaming_url = parse_streaming_url
-              output = build_output
-              pid = SleepRoom::Record.call_minyami(url: streaming_url, output: output)
-            elsif !live && SleepRoom.running?(pid)
-              log("Live stop.")
-            end
-            t.sleep 120
-          rescue Faraday::ConnectionFailed
-            log("Network error.")
-            retry
+        loop do
+          if !SleepRoom.running?(pid) && !@is_live
+            @pid = nil
+            log("Download complete.")
+            @downloading = false
+            @queue.add({
+              room: @room,
+              name: @room_name,
+              group: @group,
+              live: API::RoomAPI.new(@room).live?,
+              status: :complete,
+            })
+            break
+          elsif @is_live && !SleepRoom.running?(pid)
+            @is_live = API::RoomAPI.new(@room).live?
+            next if @is_live == false
+            log("Minyami crash.")
+            streaming_url = parse_streaming_url
+            output = build_output
+            pid = SleepRoom::Record.call_minyami(url: streaming_url, output: output)
+            @pid = pid
+          elsif !@is_live && SleepRoom.running?(pid)
+            log("Live stop.")
           end
-        end.wait
+          task.sleep 1
+        rescue Faraday::ConnectionFailed
+          log("Network error.")
+          retry
+        end
       end
 
       def add_error(error)

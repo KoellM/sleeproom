@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "async/websocket/connection"
 class WebSocketConnection < Async::WebSocket::Connection
   def read
@@ -5,16 +7,16 @@ class WebSocketConnection < Async::WebSocket::Connection
       parse(buffer)
     end
   end
-  
+
   def write(object)
     super(dump(object))
   end
-  
+
   def parse(buffer)
-    return buffer
+    buffer
   end
-  
+
   def dump(object)
-    return object
+    object
   end
 end

@@ -24,7 +24,7 @@ module SleepRoom
       command += " --output #{Shellwords.escape(output)}" if output
       download_dir_check(output)
       pid = exec_command(command, output)
-      return pid
+      pid
     end
 
     # @param command [String]
@@ -35,12 +35,12 @@ module SleepRoom
       pid = spawn(command, out: "#{output}.out", err: "#{output}.err")
       SleepRoom.info("PID: #{pid}")
       Process.detach(pid)
-      return pid
+      pid
     end
 
     def self.download_dir_check(output)
       dir = File.dirname(output)
-      if !Dir.exist?(dir)
+      unless Dir.exist?(dir)
         SleepRoom.info("#{dir} does not exist, creating...")
         SleepRoom.mkdir(dir)
       end

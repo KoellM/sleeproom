@@ -19,7 +19,7 @@ module SleepRoom
 
       def self.get(url)
         Async do
-          http = Faraday.get(url, nil, {"User-Agent": USER_AGENT})
+          http = Faraday.get(url, nil, { "User-Agent": USER_AGENT })
           if http.status == 200
             @json = JSON.parse(http.body)
           elsif http.status == 404

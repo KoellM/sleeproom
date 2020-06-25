@@ -7,7 +7,7 @@ module SleepRoom
       # @return [void]
       def self.start
         Async do |_task|
-          count = 0
+          running_task_count = 0
           write_status = WriteStatus.new
           SleepRoom.reload_config
           if SleepRoom.running?
@@ -23,13 +23,13 @@ module SleepRoom
             list.each do |room|
               record = SleepRoom::Record::Showroom.new(room: room["room"], group: group, queue: write_status)
               record.record
-              count += 1
+              running_task_count += 1
             end
           rescue 
             SleepRoom.error("Cannot parse Recording list.")
           end
           write_status.run
-          SleepRoom.info("共启动 #{count} 个任务.")
+          SleepRoom.info("共启动 #{running_task_count} 个任务.")
           wait
         rescue => e
           puts e.full_message
@@ -47,23 +47,13 @@ module SleepRoom
 
       # @return [void]
       def self.status
+        SleepRoom.reload_config
         Async do
-          SleepRoom.reload_config
           status = SleepRoom.load_status
           pid = SleepRoom.load_config(:pid)
           if !SleepRoom.running?(pid) || status.empty? || pid.nil?
             lists = SleepRoom.load_config(:record)
             SleepRoom.info("No tasks running.")
-            lists.each do |group, list|
-              next if list.empty?
-              rows = []
-              title = group
-              headings = list[0].keys
-              list.each do |hash|
-                rows.push(hash.values)
-              end
-              puts Terminal::Table.new(title: "[Recording list] Group: #{title}",:rows => rows, headings: headings)
-            end
           else
             rows = []
             headings = status[0].keys
@@ -82,6 +72,20 @@ module SleepRoom
             end
             puts Terminal::Table.new(title: "Status [PID #{pid}] (#{status.count})",:rows => rows, headings: headings)
           end
+        end
+      end
+
+      def self.lists
+        lists = SleepRoom.load_config(:record)
+        lists.each do |group, list|
+          next if list.empty?
+          rows = []
+          title = group
+          headings = list[0].keys
+          list.each do |hash|
+            rows.push(hash.values)
+          end
+          puts Terminal::Table.new(title: "[Recording list] Group: #{title}",:rows => rows, headings: headings)
         end
       end
 

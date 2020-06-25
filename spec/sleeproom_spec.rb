@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 RSpec.describe Sleeproom do
   it "has a version number" do
     expect(Sleeproom::VERSION).not_to be nil

@@ -11,15 +11,16 @@ module SleepRoom
       SleepRoom.reload_config
       @options = {}
       build
-      unless argv.empty?
+      if argv.empty? == false
         @parser.parse!(argv)
         action = argv.shift
-        if action == "status"
+        case action
+        when "status"
           SleepRoom::Record::Tasks.status
-        elsif action == "start"
+        when "start"
           SleepRoom::Record::Tasks.start
-        elsif action == "exit"
-          SleepRoom::Record::Tasks.stop
+        when "lists"
+          SleepRoom::Record::Tasks.lists
         end
         exit(0)
       else
@@ -29,20 +30,18 @@ module SleepRoom
     end
 
     # @return [void]
-    def run
-      SleepRoom::Record::Tasks.start
-    end
-
-    # @return [void]
     def build
       @parser = OptionParser.new do |opt|
         opt.version = "SleepRoom / #{SleepRoom::VERSION}"
-        opt.banner = "#{opt.version}"
+        opt.banner = opt.version.to_s
         opt.banner += "\nUsage: sleeproom [Options]\n\n"
 
         opt.banner += "Action:\n"
         opt.banner += "status".rjust(10)
         opt.banner += "显示任务状态".rjust(33)
+        opt.banner += "\n"
+        opt.banner += "list".rjust(8)
+        opt.banner += "显示录制列表".rjust(35)
         opt.banner += "\n"
         opt.banner += "exit".rjust(8)
         opt.banner += "关闭任务队列".rjust(35)
@@ -57,19 +56,20 @@ module SleepRoom
         end
 
         opt.on("-d", "--download [ROOM]", "录制指定房间") do |room|
-          raise Error.new("房间名不能为空") if room.nil?
-          if room.match?("https://www.showroom-live.com/")
-            room = room.match(/https:\/\/www.showroom-live.com\/(.*)/)[1]
-          end
+          raise Error, "房间名不能为空" if room.nil?
+
+          room = room.match(%r{https://www.showroom-live.com/(.*)})[1] if room.match?("https://www.showroom-live.com/")
           write_status = SleepRoom::Record::WriteStatus.new
-          record = SleepRoom::Record::Showroom.new(room: room, group: "download", queue: write_status)
-          record.record
+          Async do
+            record = SleepRoom::Record::Showroom.new(room: room, group: "download", queue: write_status)
+            record.record
+          end
         end
 
         opt.on("-v", "--verbose", "Print log") do
           @options[:verbose] = true
         end
-        
+
         opt.on_tail("--version", "Print version") do
           STDOUT.puts(opt.version)
         end

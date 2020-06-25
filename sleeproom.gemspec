@@ -25,11 +25,11 @@ Gem::Specification.new do |spec|
   spec.executables   = ["sleeproom"]
   spec.require_paths = ["lib"]
 
-  spec.add_runtime_dependency("colorize", "~> 0.8.0")
   spec.add_runtime_dependency("async", "~> 1.26.0")
-  spec.add_runtime_dependency("async-websocket", "~> 0.15.0")
-  spec.add_runtime_dependency("configatron", "~> 4.5.0")
   spec.add_runtime_dependency("async-http-faraday", "~> 0.9.0")
+  spec.add_runtime_dependency("async-websocket", "~> 0.15.0")
+  spec.add_runtime_dependency("colorize", "~> 0.8.0")
+  spec.add_runtime_dependency("configatron", "~> 4.5.0")
   spec.add_runtime_dependency("terminal-table", "~> 1.8.0")
 
   spec.post_install_message = <<~STR

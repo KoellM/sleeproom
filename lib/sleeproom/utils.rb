@@ -64,6 +64,7 @@ module SleepRoom
   def self.create_config_file(config, settings)
     path = config_path(config)
     return false if File.exist?(path)
+
     mkdir(File.dirname(path)) unless Dir.exist?(File.dirname(path))
     write_config_file(config, settings)
   end
@@ -105,7 +106,7 @@ module SleepRoom
       default_save_name: "%ROOMNAME%-%TIME%.ts",
       minyami: {
         threads: 8,
-        retries: 999,
+        retries: 999
       },
       logger: {
         console: true,
@@ -122,9 +123,9 @@ module SleepRoom
     mkdir(config_dir) unless Dir.exist?(config_dir)
 
     mkdir("#{config_dir}/tmp") unless Dir.exist?("#{config_dir}/tmp")
-    
+
     init_base
-    
+
     record = {
       "default" => []
     }
@@ -150,6 +151,7 @@ module SleepRoom
   def self.settings
     configatron
   end
+
   def self.load_status
     SleepRoom.load_config(:status)
   rescue Error
@@ -164,11 +166,11 @@ module SleepRoom
     retry
   end
 
-  def self.running?(pid=nil)
+  def self.running?(pid = nil)
     pid = SleepRoom.load_config(:pid) if pid.nil?
     Process.kill(0, pid)
     true
-  rescue
+  rescue StandardError
     false
   end
 
@@ -183,7 +185,7 @@ module SleepRoom
     SleepRoom.create_config_file(:status, status)
   end
 
-  def self.create_record(record = {default: []})
+  def self.create_record(record = { default: [] })
     SleepRoom.create_config_file(:record, record)
   end
 
@@ -192,6 +194,29 @@ module SleepRoom
     SleepRoom.write_config_file(:pid, pid)
   end
   
+  def self.find_tmp_directory(output, call_time)
+    regex = /Proccessing (.*) finished./
+    output = File.join(configatron.save_path, output)
+    log = "#{output}.out"
+    if media_name = File.readlines(log).select { |line| line =~ regex }.last.match(regex)[1]
+      directories = Dir["/tmp/minyami#{call_time.to_i / 10}*"]
+      directories.each do |path|
+        if Dir.glob("#{path}/*.ts").select{ |e| e.include?("media_970.ts")}
+          next if !Dir.glob("#{path}/*.ts").last.include?("media_970.ts")
+          return path
+        end
+      end
+    end
+  end
+
+  def self.move_ts_to_archive(path)
+    archive_path = File.dirname(path)
+    FileUtils.cp_r(path, archive_path)
+  rescue => e
+    p e
+    SleepRoom.error("复制失败.")
+  end
+
   # @param string [String]
   # @return [nil]
   def self.info(string)
