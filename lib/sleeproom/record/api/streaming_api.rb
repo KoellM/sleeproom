@@ -4,13 +4,14 @@ module SleepRoom
   module Record
     module API
       class StreamingAPI
+        STREAMING_API = "https://www.showroom-live.com/api/live/streaming_url"
         def initialize(room_id)
           @url = STREAMING_API + "?room_id=" + room_id.to_s + "&ignore_low_stream=1"
           @json = nil
           get
         end
 
-        def get(task: Async::Task.current)
+        def get
           @json = API.get(@url).wait
         end
 

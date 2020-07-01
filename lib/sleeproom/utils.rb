@@ -3,6 +3,7 @@
 require "configatron"
 require "colorize"
 require "fileutils"
+require "tmpdir"
 require "yaml"
 require "logger"
 
@@ -196,24 +197,29 @@ module SleepRoom
   
   def self.find_tmp_directory(output, call_time)
     regex = /Proccessing (.*) finished./
-    output = File.join(configatron.save_path, output)
+    output = "#{configatron.save_path}/#{output}"
     log = "#{output}.out"
     if media_name = File.readlines(log).select { |line| line =~ regex }.last.match(regex)[1]
-      directories = Dir["/tmp/minyami#{call_time.to_i / 10}*"]
-      directories.each do |path|
-        if Dir.glob("#{path}/*.ts").select{ |e| e.include?("media_970.ts")}
-          next if !Dir.glob("#{path}/*.ts").last.include?("media_970.ts")
+      directories = Dir["#{Dir.tmpdir}/minyami_#{call_time.to_i / 10}*"]
+      directories.each do |path| 
+        if Dir.glob("#{path}/*.ts").select{ |e| e.include?(media_name)}
+          next unless Dir.glob("#{path}/*.ts").last.include?(media_name)
+          
           return path
         end
       end
     end
+    return false
+  rescue => e
+    puts e.full_message
+    SleepRoom.error("寻找失败.")
   end
 
-  def self.move_ts_to_archive(path)
-    archive_path = File.dirname(path)
-    FileUtils.cp_r(path, archive_path)
+  def self.move_ts_to_archive(tmp, path, name)
+    FileUtils.cp_r(tmp, path)
+    FileUtils.mv(File.join(path, File.basename(tmp)), File.join(path, name))
   rescue => e
-    p e
+    puts e.full_message
     SleepRoom.error("复制失败.")
   end
 

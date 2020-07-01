@@ -8,13 +8,16 @@ require "sleeproom/record/record"
 require "sleeproom/record/tasks"
 require "sleeproom/record/websocket"
 require "sleeproom/record/api/api"
+require "sleeproom/record/web/app"
 require "async"
+require "roda"
+require "rack/handler/falcon"
 require "shellwords"
 module SleepRoom
   module Record
     # Okite!!!
     # @param url [String]
-    # @return [Boolean]
+    # @return [Integer]
     def self.call_minyami(url:, is_live: true, threads: configatron.minyami.threads, output:, retries: configatron.minyami.retries)
       command = "minyami -d #{Shellwords.escape(url)}"
       command += " --retries #{retries.to_i}" if retries
@@ -28,7 +31,7 @@ module SleepRoom
     end
 
     # @param command [String]
-    # @return [Boolean]
+    # @return [Integer]
     def self.exec_command(command, output)
       SleepRoom.info("Call command: #{command}")
       SleepRoom.info("STDOUT: #{output}.out , STDERR: #{output}.err")

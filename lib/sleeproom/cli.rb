@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "backports/2.5" if RUBY_VERSION < "2.5.0"
+require "ruby-next"
 require "optparse"
 require "yaml"
 require "sleeproom/record"
@@ -18,7 +20,7 @@ module SleepRoom
         when "status"
           SleepRoom::Record::Tasks.status
         when "start"
-          SleepRoom::Record::Tasks.start
+          SleepRoom::Record::Tasks.start(**@options)
         when "lists"
           SleepRoom::Record::Tasks.lists
         end

@@ -11,14 +11,10 @@ module SleepRoom
     module API
       class Error < StandardError; end
       class NotFoundError < Error; end
-      ROOM_URL = "https://www.showroom-live.com"
-      ROOM_API = "https://www.showroom-live.com/api/room/status"
-      STREAMING_API = "https://www.showroom-live.com/api/live/streaming_url"
-
       USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36"
 
-      def self.get(url)
-        Async do
+      def self.get(url, task: Async::Task.current)
+        task.async do
           http = Faraday.get(url, nil, { "User-Agent": USER_AGENT })
           if http.status == 200
             @json = JSON.parse(http.body)

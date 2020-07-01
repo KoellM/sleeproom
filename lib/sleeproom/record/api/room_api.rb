@@ -4,13 +4,14 @@ module SleepRoom
   module Record
     module API
       class RoomAPI
+        ROOM_API = "https://www.showroom-live.com/api/room/status"
         def initialize(room_url_key)
           @url = ROOM_API + "?room_url_key=" + room_url_key
           @json = nil
           get
         end
 
-        def get(task: Async::Task.current)
+        def get
           @json = API.get(@url).wait
         end
 
