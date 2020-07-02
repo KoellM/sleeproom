@@ -18,7 +18,7 @@ module SleepRoom
       end
 
       # Record Room
-      def recore
+      def record
         set_room_info
         if @is_live
           log("Status: broadcast.")
