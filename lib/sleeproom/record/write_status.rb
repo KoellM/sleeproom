@@ -34,7 +34,7 @@ module SleepRoom
         end
       end
 
-      def downloading(room:, url:, pid:, start_time:)
+      def downloading(room:, url:, pid:, start_time:, output:)
         add(
           {
             room: room,
@@ -47,7 +47,7 @@ module SleepRoom
         )
       end
 
-      def waiting(room:, group:, room_name:)
+      def waiting(room:, group:, room_name:, key:)
         add(
           {
             room: room,
@@ -55,6 +55,9 @@ module SleepRoom
             group: group,
             name: room_name,
             status: :waiting,
+            websocket: {
+              key: key
+            }
           }
         )
       end

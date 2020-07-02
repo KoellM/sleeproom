@@ -128,7 +128,7 @@ module SleepRoom
         # Call time
         call_time = Time.now
         pid = SleepRoom::Record.call_minyami(url: streaming_url, output: output)
-        @status.downloading(room: @room, url: streaming_url, pid: pid, start_time: call_time)
+        @status.downloading(room: @room, url: streaming_url, pid: pid, start_time: call_time, output: output)
         log("Waiting for download process.")
         # Status
         task.async do |t|
@@ -189,7 +189,7 @@ module SleepRoom
       end
 
       def update_status
-        @status.waiting(room: @room, group: @group, room_name: @room_name)
+        @status.waiting(room: @room, group: @group, room_name: @room_name, key: @broadcast_key)
       end
     end
   end
