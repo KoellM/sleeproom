@@ -33,6 +33,18 @@ module SleepRoom
         retry
       end
 
+      # Print log
+      # @param str [String]
+      def log(str)
+        SleepRoom.info("[#{@room}] #{str}")
+      end
+
+      # Print log
+      # @param str [String]
+      def error(str)
+        SleepRoom.error("[#{@room}] #{str}")
+      end
+
       private
 
       # Websocket connect
