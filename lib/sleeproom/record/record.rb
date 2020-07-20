@@ -15,6 +15,7 @@ module SleepRoom
         @group = group
         @status = queue
         @running = false
+        @downloading = false
       end
 
       # Record Room
@@ -22,7 +23,7 @@ module SleepRoom
         set_room_info
         if @is_live
           log("Status: broadcast.")
-          download_process
+          download_process if @downloading == false
         else
           log("Status: Stop.")
         end
@@ -49,46 +50,50 @@ module SleepRoom
 
       # Websocket connect
       def start_websocket(task: Async::Task.current)
-        log("Broadcast Key: #{@broadcast_key}")
-        ws = WebSocket.new(room: @room, broadcast_key: @broadcast_key, url: @broadcast_host)
-        @running = true
-        update_status
-        begin
-          ws.connect do |event, message|
-            if event == :websocket
-              case message["t"].to_i
-              when 101
-                log("Live stop.")
-                @is_live = false
-                ws.running = false
-              when 104
-                log("Live start.")
-                download_process
+        main = task.async do |task|
+          log("Broadcast Key: #{@broadcast_key}")
+          ws = WebSocket.new(room: @room, broadcast_key: @broadcast_key, url: @broadcast_host)
+          @running = true
+          update_status
+          begin
+            ws.connect do |event, message|
+              if event == :websocket
+                case message["t"].to_i
+                when 101
+                  log("Live stop.")
+                  @is_live = false
+                  ws.running = false
+                when 104
+                  log("Live start.")
+                  download_process
+                end
+              elsif event == :status
+                case message[:event]
+                when :ack
+                  update_status
+                when :close
+                  log("WebSocket Close.")
+                  task&.stop
+                when :error
+                  error("Network Error.")
+                  task&.stop
+                end
+              else
+                # TODO
               end
-            elsif event == :status
-              case message[:event]
-              when :ack
-                update_status
-              when :close
-                log("WebSocket Close.")
-                task.sleep 5
-                record
-              when :error
-                error("Network Error.")
-                log("Try to reconnect server.")
-                task.sleep 5
-                record
-              end
-            else
-              # TODO
             end
+          rescue => e
+            error("WebSocket stopped.")
+            puts(e.full_message)
+            task&.stop
           end
-        rescue => e
-          error("WebSocket stopped.")
-          puts(e.full_message)
         end
+        main.wait
       ensure
         @running = false
+        task.sleep 5
+        main&.stop
+        start_websocket
       end
 
       def set_room_info(task: Async::Task.current)
@@ -122,6 +127,7 @@ module SleepRoom
       # Downloader
       def download_process(task: Async::Task.current)
         completed = false
+        @downloading = true
         log("Download start.")
         streaming_url = parse_streaming_url
         output = build_output
@@ -176,6 +182,8 @@ module SleepRoom
             t.sleep 1
           end
         end
+      ensure
+        @downloading = false
       end
 
       # @return [String]

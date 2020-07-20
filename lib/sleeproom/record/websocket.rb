@@ -32,15 +32,22 @@ module SleepRoom
             ping_task = task.async do |sub|
               while @running
                 sub.sleep 60
-                connection.write("PING\tshowroom")
-                connection.flush
+                begin
+                  connection.write("PING\tshowroom")
+                  connection.flush
+                rescue => e
+                  log(e.message)
+                end
               end
             end
 
             status_task = task.async do |sub|
               loop do
                 sub.sleep 1
-                connection.close if @running == false
+                if @runing == false
+                  connection.close
+                  yield :status, { event: :close, time: Time.now }
+                end
               end
             end
 
@@ -49,9 +56,11 @@ module SleepRoom
                 t.sleep 10
                 if !@last_ack.nil? && Time.now.to_i - @last_ack.to_i > 65
                   begin
-                    yield :status, { event: :close, time: Time.now }
                     connection.close
                   rescue
+                    # 
+                  ensure
+                    yield :status, { event: :close, time: Time.now }
                   end
                 end
               end

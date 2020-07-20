@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.summary       = "sleeproom"
   spec.homepage      = "https://github.com/KoellM/sleeproom"
   spec.license       = "MIT"
-  spec.required_ruby_version = Gem::Requirement.new(">= 2.3.0")
+  spec.required_ruby_version = Gem::Requirement.new(">= 2.5.0")
 
   spec.metadata["homepage_uri"] = spec.homepage
   # spec.metadata["source_code_uri"] = "TODO: Put your gem's public repo URL here."
@@ -28,7 +28,6 @@ Gem::Specification.new do |spec|
   spec.add_runtime_dependency("async", "~> 1.26.0")
   spec.add_runtime_dependency("async-http-faraday", "~> 0.9.0")
   spec.add_runtime_dependency("async-websocket", "~> 0.15.0")
-  spec.add_runtime_dependency("backports", "~> 3.0")
   spec.add_runtime_dependency("colorize", "~> 0.8.0")
   spec.add_runtime_dependency("configatron", "~> 4.5.0")
   spec.add_runtime_dependency("falcon", "~> 0.36.0")
