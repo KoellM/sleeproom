@@ -6,9 +6,14 @@ require "fileutils"
 require "tmpdir"
 require "yaml"
 require "logger"
+require "dry/files"
 
 module SleepRoom
   class Error < StandardError; end
+  def self.files
+    Dry::Files.new
+  end
+  
   # @return [String]
   def self.root_path
     Dir.pwd
@@ -85,15 +90,10 @@ module SleepRoom
 
   def self.init_base
     base = {
-      web: {
-        use: true,
-        server: "localhost",
-        port: 3000
-      },
       proxy: {
         use: false,
         server: "localhost",
-        port: 8080,
+        port: 1080,
         type: "socks5"
       },
       record: {
@@ -107,7 +107,8 @@ module SleepRoom
       default_save_name: "%ROOMNAME%-%TIME%.ts",
       minyami: {
         threads: 8,
-        retries: 999
+        retries: 999,
+        no_merge: false,
       },
       logger: {
         console: true,
@@ -195,6 +196,10 @@ module SleepRoom
     SleepRoom.write_config_file(:pid, pid)
   end
   
+  def self.plugins
+    
+  end
+
   def self.find_tmp_directory(output, call_time)
     regex = /Proccessing (.*) finished./
     output = "#{configatron.save_path}/#{output}"
@@ -231,6 +236,12 @@ module SleepRoom
 
   # @param string [String]
   # @return [nil]
+  def self.debug(string)
+    log(:debug, string) if ENV["SR_DEBUG"]
+  end
+
+  # @param string [String]
+  # @return [nil]
   def self.warning(string)
     log(:warning, string)
   end
@@ -250,6 +261,8 @@ module SleepRoom
         warn("[WARN] #{log}".colorize(:yellow))
       when :error
         puts("[ERROR] #{log}".colorize(:red))
+      when :debug
+        puts("[DEBUG] #{log}".colorize(:gray))
       end
     end
     file_logger(type, log) if configatron.logger.file.use == true

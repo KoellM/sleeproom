@@ -35,14 +35,6 @@ module SleepRoom
               end
             end
             SleepRoom.info("共启动 #{running_task_count} 个任务.")
-            if configatron.web.use
-              Async do
-                host = configatron.web.server.to_s
-                port = configatron.web.port.to_i
-                Rack::Handler.get(:falcon).run(Web::App, Host: host, Port: port)
-                SleepRoom.info("Web server running. http://#{host}:#{port}/")
-              end
-            end
             task.children.each(&:wait)
           rescue StandardError => e
             puts e.full_message
@@ -105,7 +97,13 @@ module SleepRoom
 
       def self.add(room, group)
         Async do
-          group = "default" if group.empty?
+          if group.empty?
+            if group_match = room.match(/(?<=[(（]).*?(?=[)）])/)
+              group = group_match[0]
+            else
+              group = "default"
+            end
+          end
           old_record = SleepRoom.load_config(:record)
           name = API::RoomAPI.new(room).room_name
           input_record = { "room" => room, "name" => name }

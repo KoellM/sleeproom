@@ -16,7 +16,6 @@
 ## TODO
 * [ ] 代理支持
 * [ ] Web GUI
-* [ ] 日志保存
 
 ## Service example
 ```

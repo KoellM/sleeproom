@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "backports/2.5" if RUBY_VERSION < "2.5.0"
 require "ruby-next"
 require "optparse"
 require "yaml"
@@ -12,6 +11,12 @@ module SleepRoom
     def initialize(argv)
       SleepRoom.reload_config
       @options = {}
+      begin
+        minyami = `minyami --version`
+        status = $?
+      rescue => e
+        SleepRoom.warning("无法调用 Minyami: #{e.message}")
+      end
       build
       if argv.empty? == false
         @parser.parse!(argv)
@@ -42,18 +47,18 @@ module SleepRoom
         opt.banner += "status".rjust(10)
         opt.banner += "显示任务状态".rjust(33)
         opt.banner += "\n"
-        opt.banner += "list".rjust(8)
-        opt.banner += "显示录制列表".rjust(35)
+        opt.banner += "lists".rjust(9)
+        opt.banner += "显示录制列表".rjust(34)
         opt.banner += "\n"
         opt.banner += "exit".rjust(8)
         opt.banner += "关闭任务队列".rjust(35)
         opt.banner += "\n\nCommands:\n"
 
-        opt.on("-a ROOM, NAME", "--add ROOM, GROUP", Array, "添加到监视列表") do |room|
+        opt.on("-a ROOM, NAME", "--add ROOM, GROUP", Array, "添加房间到监视列表") do |room|
           SleepRoom::Record::Tasks.add(room[0].to_s, room[1].to_s)
         end
 
-        opt.on("-r", "--remove [ROOM]", "从监视列表移除") do |room|
+        opt.on("-r", "--remove [ROOM]", "从监视列表移除房间") do |room|
           SleepRoom::Record::Tasks.remove(room)
         end
 
@@ -68,11 +73,12 @@ module SleepRoom
           end
         end
 
-        opt.on("-v", "--verbose", "Print log") do
+        opt.on("--verbose", "DEBUG") do
+          ENV["SR_DEBUG"] = "DEBUG"
           @options[:verbose] = true
         end
 
-        opt.on_tail("--version", "Print version") do
+        opt.on_tail("-v", "--version", "Print version") do
           STDOUT.puts(opt.version)
         end
 

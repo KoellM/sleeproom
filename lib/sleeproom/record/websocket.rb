@@ -8,103 +8,85 @@ require "json"
 module SleepRoom
   module Record
     class WebSocket
-      attr_accessor :last_ack
-      def initialize(room:, broadcast_key:, url:)
+      def initialize(room:, broadcast_key:, url:, open_handler:, message_handler:, close_handler:, error_handler:, ping_handler:)
         @room = room
         @url = "wss://" + url
         @broadcast_key = broadcast_key
         @running = false
-        @last_ack = nil
+        @endpoint = Async::HTTP::Endpoint.parse(@url)
+        @open_handler = open_handler
+        @message_handler = message_handler
+        @close_handler = close_handler
+        @error_handler = error_handler
+        @ping_handler = ping_handler
       end
 
       def connect(task: Async::Task.current)
-        url = @url
-        endpoint = Async::HTTP::Endpoint.parse(url)
-        Async::WebSocket::Client.connect(endpoint, handler: WebSocketConnection) do |connection|
-          begin
-            @connection = connection
-            @running = true
-            connection.write("SUB\t#{@broadcast_key}")
-            connection.flush
-            log("Connect to websocket server.")
-            yield :status, { event: :connect, time: Time.now }
+        websocket = Async::WebSocket::Client.connect(@endpoint, handler: WebSocketConnection) do |connection|
+          @connection = connection
+          @running = true
+          send("SUB\t#{@broadcast_key}")
 
-            ping_task = task.async do |sub|
-              while @running
-                sub.sleep 60
-                begin
-                  connection.write("PING\tshowroom")
-                  connection.flush
-                rescue => e
-                  log(e.message)
-                end
-              end
-            end
+          log("Connect to websocket server.")
+          @open_handler.call
 
-            status_task = task.async do |sub|
-              loop do
-                sub.sleep 1
-                if @runing == false
-                  connection.close
-                  yield :status, { event: :close, time: Time.now }
-                end
-              end
+          ping = task.async do |task|
+            loop do
+              task.sleep 60
+              send("PING\tshowroom")
             end
-
-            reconnect_task = task.async do |t|
-              loop do
-                t.sleep 10
-                if !@last_ack.nil? && Time.now.to_i - @last_ack.to_i > 65
-                  begin
-                    connection.close
-                  rescue
-                    # 
-                  ensure
-                    yield :status, { event: :close, time: Time.now }
-                  end
-                end
-              end
-            end
-            while message = connection.read
-              if message == "ACK\tshowroom"
-                @last_ack = Time.now
-                yield :status, { event: :ack, time: Time.now } if message == "ACK\tshowroom"
-              end
-              next unless message.start_with?("MSG")
-
-              begin
-                yield :websocket, JSON.parse(message.split("\t")[2])
-              rescue => e
-                SleepRoom.error(e.message)
-              end
-            end
-          rescue => e
-            yield :status, { event: :error, error: e }
-            SleepRoom.error(e.message)
-          ensure
-            ping_task&.stop
-            status_task&.stop
-            connection.close
-            reconnect_task&.stop
-            log("WebSocket closed.")
           end
+
+          while message = connection.read
+            debug("ACK: #{message}")
+            @ping_handler.call if message == "ACK\tshowroom"
+
+            next unless message.start_with?("MSG")
+
+            begin
+              @message_handler.call(JSON.parse(message.split("\t")[2]))
+            rescue JSON::ParserError => e
+              @error_handler.call(e)
+              log(e.message)
+            end
+          end
+        rescue => e
+          error "error"
+          @error_handler.call(e)
+          log(e.full_message)
+        ensure
+          ping&.stop
+          @close_handler.call(nil)
+          @running = false
+          log("WebSocket closed.")
         end
+      end
+
+      def send(data)
+        debug("SEND: #{data}")
+        @connection.write(data)
+        @connection.flush
       end
 
       def running?
         @running
       end
 
-      attr_writer :running
-
       def stop
-        @running = false
         @connection.close
       end
 
       def log(str)
         SleepRoom.info("[#{@room}] #{str}")
       end
-  end
+
+      def error(str)
+        SleepRoom.error("[#{@room}] #{str}")
+      end
+
+      def debug(str)
+        SleepRoom.debug("[#{@room}] #{str}")
+      end
+    end
   end
 end

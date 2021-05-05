@@ -8,21 +8,20 @@ require "sleeproom/record/record"
 require "sleeproom/record/tasks"
 require "sleeproom/record/websocket"
 require "sleeproom/record/api/api"
-require "sleeproom/record/web/app"
+require "sleeproom/record/plugins"
 require "async"
-require "roda"
-require "rack/handler/falcon"
 require "shellwords"
 module SleepRoom
   module Record
     # Okite!!!
     # @param url [String]
     # @return [Integer]
-    def self.call_minyami(url:, is_live: true, threads: configatron.minyami.threads, output:, retries: configatron.minyami.retries)
+    def self.call_minyami(url:, is_live: true, threads: configatron.minyami.threads, output:, retries: configatron.minyami.retries, no_merge: configatron.minyami.no_merge)
       command = "minyami -d #{Shellwords.escape(url)}"
       command += " --retries #{retries.to_i}" if retries
       command += " --threads #{threads.to_i}" if threads
       command += " --live" if is_live
+      command += " --nomerge" if no_merge
       output = File.join(configatron.save_path, output)
       command += " --output #{Shellwords.escape(output)}" if output
       download_dir_check(output)

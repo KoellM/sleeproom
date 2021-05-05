@@ -16,21 +16,23 @@ module SleepRoom
         @status = queue
         @running = false
         @downloading = false
+        set_room_info
       end
 
       # Record Room
       def record
-        set_room_info
         if @is_live
           log("Status: broadcast.")
           download_process if @downloading == false
         else
+          update_status
           log("Status: Stop.")
         end
         start_websocket
       rescue => e
         error(e.full_message)
         Async::Task.current.sleep 5
+        set_room_info
         retry
       end
 
@@ -38,6 +40,10 @@ module SleepRoom
       # @param str [String]
       def log(str)
         SleepRoom.info("[#{@room}] #{str}")
+      end
+
+      def debug(str)
+        SleepRoom.debug("[#{@room}] #{str}")
       end
 
       # Print log
@@ -48,52 +54,55 @@ module SleepRoom
 
       private
 
+      def open_handler
+      end
+
+      def message_handler(data)
+        case data["t"].to_i
+        when 101
+          log("Live stop.")
+          @is_live = false
+          set_room_info
+        when 104
+          log("Live start.")
+          download_process
+        end
+      end
+
+      def close_handler(error)
+        @running = false
+      end
+
+      def error_handler(error)
+        @running = false
+      end
+
+      def ping_handler
+      end
+
       # Websocket connect
       def start_websocket(task: Async::Task.current)
-        main = task.async do |task|
-          log("Broadcast Key: #{@broadcast_key}")
-          ws = WebSocket.new(room: @room, broadcast_key: @broadcast_key, url: @broadcast_host)
-          @running = true
-          update_status
-          begin
-            ws.connect do |event, message|
-              if event == :websocket
-                case message["t"].to_i
-                when 101
-                  log("Live stop.")
-                  @is_live = false
-                  ws.running = false
-                when 104
-                  log("Live start.")
-                  download_process
-                end
-              elsif event == :status
-                case message[:event]
-                when :ack
-                  update_status
-                when :close
-                  log("WebSocket Close.")
-                  task&.stop
-                when :error
-                  error("Network Error.")
-                  task&.stop
-                end
-              else
-                # TODO
-              end
-            end
-          rescue => e
-            error("WebSocket stopped.")
-            puts(e.full_message)
-            task&.stop
+        connection = task.async do |task|
+          while @running == false
+            log("Broadcast Key: #{@broadcast_key}")
+            @ws = WebSocket.new(
+              room: @room, 
+              broadcast_key: @broadcast_key,
+              url: @broadcast_host,
+              open_handler: method(:open_handler),
+              message_handler: method(:message_handler),
+              close_handler: method(:close_handler),
+              error_handler: method(:error_handler),
+              ping_handler: method(:ping_handler)
+            )
+            @ws.connect
           end
         end
-        main.wait
+        task.children.each(&:wait)
       ensure
+        log("Websocket task stop.")
+        connection&.stop
         @running = false
-        task.sleep 5
-        main&.stop
-        start_websocket
       end
 
       def set_room_info(task: Async::Task.current)
@@ -109,18 +118,19 @@ module SleepRoom
         task.stop
       rescue => e
         error(e.message)
-        log("获取房间信息失败.")
-        log("等待5秒...")
+        log("Cannot parse room info.")
+        log("try again...")
         task.sleep 5
         retry
       end
 
-      def parse_streaming_url
+      def parse_streaming_url(task: Async::Task.current)
         api = API::StreamingAPI.new(@room_id)
         api.streaming_url
       rescue => e
         SleepRoom.error(e.full_message)
-        log("获取 HLS 地址失败.")
+        log("Unable to parse HLS url.")
+        task.sleep 1
         retry
       end
 
@@ -149,7 +159,7 @@ module SleepRoom
                 break if @is_live == true
 
                 log("Waiting for latest status...")
-                task.sleep 20
+                task.sleep 5
                 retries += 1
               end
               completed = true if retries == 3 && @is_live == false
@@ -157,18 +167,20 @@ module SleepRoom
               # Live stopped, Minyami process stopped.
               @status.add(room: @room, status: :completed, live: false)
               log("Download completed.")
-              log("Find minyami temp files...")
-              tmp_path = SleepRoom.find_tmp_directory(output, call_time)
-              if tmp_path
-                log("Temp files in #{tmp_path}.")
-                save_path = File.dirname("#{configatron.save_path}/#{output}")
-                dir_name = File.basename(output).sub(".ts", "")
-                SleepRoom.move_ts_to_archive(tmp_path, save_path, dir_name)
-                log("Save chunks to #{save_path}/#{dir_name}.")
-              else
-                log("Can not find temp file")
+              if configatron.minyami.no_merge
+                log("Find minyami temp files...")
+                tmp_path = SleepRoom.find_tmp_directory(output, call_time)
+                if tmp_path
+                  log("Temp files in #{tmp_path}.")
+                  save_path = File.dirname("#{configatron.save_path}/#{output}")
+                  dir_name = File.basename(output).sub(".ts", "")
+                  SleepRoom.move_ts_to_archive(tmp_path, save_path, dir_name)
+                  log("Save chunks to #{save_path}/#{dir_name}.")
+                else
+                  log("Can not find temp file")
+                end
               end
-              record
+              @ws.close
               @running = false
               break
             elsif SleepRoom.running?(pid) == false && @is_live == true

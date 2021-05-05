@@ -25,15 +25,15 @@ Gem::Specification.new do |spec|
   spec.executables   = ["sleeproom"]
   spec.require_paths = ["lib"]
 
-  spec.add_runtime_dependency("async", "~> 1.26.0")
-  spec.add_runtime_dependency("async-http-faraday", "~> 0.9.0")
-  spec.add_runtime_dependency("async-websocket", "~> 0.15.0")
-  spec.add_runtime_dependency("colorize", "~> 0.8.0")
-  spec.add_runtime_dependency("configatron", "~> 4.5.0")
-  spec.add_runtime_dependency("falcon", "~> 0.36.0")
-  spec.add_runtime_dependency("roda", "~> 3.33.0")
-  spec.add_runtime_dependency("ruby-next-core", "~> 0.9.0")
-  spec.add_runtime_dependency("terminal-table", "~> 1.8.0")
+  spec.add_runtime_dependency("async", "~> 1.29")
+  spec.add_runtime_dependency("async-http-faraday", "~> 0.9")
+  spec.add_runtime_dependency("async-websocket", "~> 0.18")
+  spec.add_runtime_dependency("colorize", "~> 0.8")
+  spec.add_runtime_dependency("configatron", "~> 4.5")
+  spec.add_runtime_dependency("ruby-next-core", "~> 0.9")
+  spec.add_runtime_dependency("terminal-table", "~> 1.8")
+  spec.add_runtime_dependency("dry-files", "~> 0.1")
+  spec.add_runtime_dependency("dry-auto_inject", "~> 0.6")
   
   spec.post_install_message = <<~STR
     SleepRoom 需要:
